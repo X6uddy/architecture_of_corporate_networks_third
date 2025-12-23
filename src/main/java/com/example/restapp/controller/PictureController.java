@@ -1,6 +1,8 @@
 package com.example.restapp.controller;
 
 import com.example.restapp.model.Picture;
+import com.example.restapp.model.ChangeType;
+import com.example.restapp.messaging.ChangeEventPublisher;
 import com.example.restapp.repository.PictureRepository;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -17,9 +19,11 @@ import java.util.Optional;
 public class PictureController
 {
     private final PictureRepository repository;
+    private final ChangeEventPublisher publisher;
 
-    public PictureController(PictureRepository repository) {
+    public PictureController(PictureRepository repository, ChangeEventPublisher publisher) {
         this.repository = repository;
+        this.publisher = publisher;
     }
 
     @GetMapping(produces = {"application/json", "application/xml"})
@@ -38,6 +42,7 @@ public class PictureController
     public ResponseEntity<Picture> create(@Valid @RequestBody Picture picture, UriComponentsBuilder uriBuilder)
     {
         Picture saved = repository.save(picture);
+        publisher.publish(ChangeType.INSERT, "Picture", saved.getId().toString(), picturePayload(saved));
         URI location = uriBuilder.path("/api/pictures/{id}").buildAndExpand(saved.getId()).toUri();
         return ResponseEntity.created(location).body(saved);
     }
@@ -50,7 +55,9 @@ public class PictureController
             picture.setTitle(details.getTitle());
             picture.setYear(details.getYear());
             picture.setArtist(details.getArtist());
-            return ResponseEntity.ok(repository.save(picture));
+            Picture updated = repository.save(picture);
+            publisher.publish(ChangeType.UPDATE, "Picture", updated.getId().toString(), picturePayload(updated));
+            return ResponseEntity.ok(updated);
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -59,9 +66,21 @@ public class PictureController
     {
         return repository.findById(id).map(picture ->
         {
+            publisher.publish(ChangeType.DELETE, "Picture", picture.getId().toString(), picturePayload(picture));
             repository.delete(picture);
             return ResponseEntity.noContent().build();
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    private static Object picturePayload(Picture picture)
+    {
+        Long artistId = picture.getArtist() != null ? picture.getArtist().getId() : null;
+        return java.util.Map.of(
+                "id", picture.getId(),
+                "title", picture.getTitle(),
+                "year", picture.getYear(),
+                "artistId", artistId
+        );
     }
 }
 

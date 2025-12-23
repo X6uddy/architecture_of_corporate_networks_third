@@ -1,6 +1,8 @@
 package com.example.restapp.controller;
 
 import com.example.restapp.model.Artist;
+import com.example.restapp.model.ChangeType;
+import com.example.restapp.messaging.ChangeEventPublisher;
 import com.example.restapp.repository.ArtistRepository;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -16,9 +18,11 @@ import java.util.Optional;
 @RequestMapping("/api/artists")
 public class ArtistController {
     private final ArtistRepository repository;
+    private final ChangeEventPublisher publisher;
 
-    public ArtistController(ArtistRepository repository) {
+    public ArtistController(ArtistRepository repository, ChangeEventPublisher publisher) {
         this.repository = repository;
+        this.publisher = publisher;
     }
 
     @GetMapping(produces = {"application/json", "application/xml"})
@@ -37,6 +41,7 @@ public class ArtistController {
     public ResponseEntity<Artist> create(@Valid @RequestBody Artist artist, UriComponentsBuilder uriBuilder)
     {
         Artist saved = repository.save(artist);
+        publisher.publish(ChangeType.INSERT, "Artist", saved.getId().toString(), artistPayload(saved));
         URI location = uriBuilder.path("/api/artists/{id}").buildAndExpand(saved.getId()).toUri();
         return ResponseEntity.created(location).body(saved);
     }
@@ -48,7 +53,9 @@ public class ArtistController {
         {
             artist.setFullName(details.getFullName());
             artist.setBirthYear(details.getBirthYear());
-            return ResponseEntity.ok(repository.save(artist));
+            Artist updated = repository.save(artist);
+            publisher.publish(ChangeType.UPDATE, "Artist", updated.getId().toString(), artistPayload(updated));
+            return ResponseEntity.ok(updated);
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -57,9 +64,19 @@ public class ArtistController {
     {
         return repository.findById(id).map(artist ->
         {
+            publisher.publish(ChangeType.DELETE, "Artist", artist.getId().toString(), artistPayload(artist));
             repository.delete(artist);
             return ResponseEntity.noContent().build();
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    private static Object artistPayload(Artist artist)
+    {
+        return java.util.Map.of(
+                "id", artist.getId(),
+                "fullName", artist.getFullName(),
+                "birthYear", artist.getBirthYear()
+        );
     }
 }
 
