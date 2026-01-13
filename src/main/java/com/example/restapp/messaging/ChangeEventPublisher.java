@@ -3,7 +3,7 @@ package com.example.restapp.messaging;
 import com.example.restapp.model.ChangeType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.jms.Queue;
+import jakarta.jms.Topic;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
@@ -15,18 +15,15 @@ import java.util.Map;
 public class ChangeEventPublisher
 {
     private final JmsTemplate jmsTemplate;
-    private final Queue auditDestination;
-    private final Queue notificationDestination;
+    private final Topic changeEventsTopic;
     private final ObjectMapper objectMapper;
 
     public ChangeEventPublisher(JmsTemplate jmsTemplate,
-                                @Qualifier("auditDestination") Queue auditDestination,
-                                @Qualifier("notificationDestination") Queue notificationDestination,
+                                @Qualifier("changeEventsTopic") Topic changeEventsTopic,
                                 ObjectMapper objectMapper)
     {
         this.jmsTemplate = jmsTemplate;
-        this.auditDestination = auditDestination;
-        this.notificationDestination = notificationDestination;
+        this.changeEventsTopic = changeEventsTopic;
         this.objectMapper = objectMapper;
     }
 
@@ -41,8 +38,7 @@ public class ChangeEventPublisher
                 .occurredAt(Instant.now())
                 .build();
 
-        jmsTemplate.convertAndSend(auditDestination, event);
-        jmsTemplate.convertAndSend(notificationDestination, event);
+        jmsTemplate.convertAndSend(changeEventsTopic, event);
     }
 }
 

@@ -35,7 +35,7 @@ public class NotificationListener
         this.pictureYearThreshold = pictureYearThreshold;
     }
 
-    @JmsListener(destination = "${app.messaging.notification-destination}")
+    @JmsListener(destination = "${app.messaging.change-events-topic}", containerFactory = "jmsListenerContainerFactory")
     public void onChangeEvent(ChangeEvent event)
     {
         if (event == null || event.getEntityName() == null)

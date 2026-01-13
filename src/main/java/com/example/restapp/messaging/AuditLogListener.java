@@ -22,7 +22,7 @@ public class AuditLogListener
         this.objectMapper = objectMapper;
     }
 
-    @JmsListener(destination = "${app.messaging.audit-destination}")
+    @JmsListener(destination = "${app.messaging.change-events-topic}", containerFactory = "jmsListenerContainerFactory")
     public void onChangeEvent(ChangeEvent event) throws Exception
     {
         if (event == null || event.getChangeType() == null || event.getEntityName() == null || event.getEntityId() == null)
